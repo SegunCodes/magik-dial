@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>USSD Emulator</title>
+</head>
+<body>
+    <h1>USSD Emulator</h1>
+    <form id="ussdForm">
+        <label for="code">Enter USSD session ID: </label>
+        <input type="text" id="session_id" name="session_id" placeholder="Enter USSD session id" required>
+        <button type="submit">Submit</button>
+    </form>
+    <div id="response">
+        <!-- Display response from the backend here -->
+    </div>
+    <script>
+        // JavaScript code to handle form submission and Fetch API request
+        const ussdForm = document.getElementById('ussdForm');
+        const responseDiv = document.getElementById('response');
+
+        ussdForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const sessionInput = document.getElementById('session_id');
+            const session_id = sessionInput.value;
+
+            try {
+                const response = await fetch('/ussd-webhook', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ session_id }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Request failed');
+                }
+
+                const data = await response.json();
+
+                // Handle the response data
+                responseDiv.innerHTML = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.innerHTML = 'Error: ' + error.message;
+            }
+        });
+    </script>
+    </body>
+</html>

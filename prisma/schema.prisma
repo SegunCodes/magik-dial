@@ -1,0 +1,313 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+
+enum ProductTypeEnum {
+  ONESHOT
+  SUBSCRIPTION
+}
+
+enum UpdateTypeEnum {
+  SUBSCRIBED
+  RENEWED
+  UNSUBSCRIBED
+  ONESHOT
+}
+
+enum DrawConfigType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  GRAND
+}
+
+enum CashOutRequestType {
+  AIRTIME
+  BANK
+}
+
+enum CashOutRequestStatus {
+  PENDING
+  PROCESSED
+  DISPUTED
+}
+
+
+enum PartnerPayoutStatus {
+  PENDING
+  PROCESSED
+  DISPUTED
+}
+
+enum SMSDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum AuditActionBy {
+  SYSTEM
+  ADMIN
+  SUBSCRIBER
+}
+
+// Admin model
+model Admin {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  password     String    
+  accountType  String  
+  resetToken   String?
+  otp          String?
+  isBanned     Boolean
+  twoFaEnabled Boolean
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// User model
+model User {
+  id                String     @id @default(uuid())
+  msisdn            String     @unique
+  bankAccountNumber String?
+  bankName          String?
+  bankAccountCode   String?
+  bankAccountName   String?
+  balance           Float      @default(0)
+  isBanned          Boolean
+  status            String
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+}
+
+// Datasync model
+model Datasync {
+  id             String    @id @default(uuid())
+  msisdn         String   
+  serviceId      String
+  productId      String
+  subscribed     Boolean
+  updateType     UpdateTypeEnum
+  subExpiryTime  DateTime
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+
+// DailyDatasync model
+model DailyDatasync {
+  id           String    @id @default(uuid())
+  msisdn       String
+  productId    String
+  updateType   UpdateTypeEnum
+  createdAt    DateTime @default(now())
+  product      Product? @relation(fields: [productId], references: [id])  // Establishing a reverse relationship
+}
+
+// Service model
+model Service {
+  id          String    @id @default(uuid())
+  externalId  String    @unique
+  name        String
+  description String
+  shortcode   String
+  isActive    Boolean
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Product (aka game) model
+model Product {
+  id          String    @id @default(uuid())
+  externalId  String    @unique
+  name        String
+  type        ProductTypeEnum
+  serviceId   String
+  amount      Float 
+  description String
+  isActive    Boolean
+  shortCode   String
+  entryChannels String
+  productKeyword String
+  networks    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  dailyDatasync DailyDatasync[] // establishing a one-to-many relationship
+}
+
+// GameEntry model
+model GameEntry {
+  id             String    @id @default(uuid())
+  productId      String
+  msisdn         String
+  dailyDatasyncId String
+  validUntil     DateTime
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// DrawPool model
+model DrawPool {
+  id        String    @id @default(uuid())
+  productId     String
+  msisdns       String
+  validUntil    DateTime
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// DrawConfig model
+model DrawConfig {
+  id                           String    @id @default(uuid())
+  productId                    String
+  type                         DrawConfigType
+  shouldRunAutomatically       Boolean
+  shouldRunAutomaticallyUntilDate DateTime?
+  isEnabled                    Boolean
+  winnablePercentage           Float
+  winnersPerPool               BigInt
+  totalPoolSize                BigInt
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
+}
+
+// DrawResult model
+model DrawResult {
+  id                  String      @id @default(uuid())
+  drawConfigId        String      
+  winners             String      
+  winnablePercentage  Float
+  winnableAmount      Float
+  winnersPerPool      BigInt
+  totalPoolSize       BigInt
+  totalAmount         Float
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+}
+
+// Winner model
+model Winner {
+  id        String    @id @default(uuid())
+  msisdn    String
+  productId String    
+  drawId    String   
+  amountWon Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Partner model
+model Partner {
+  id                      String    @id @default(uuid())
+  name                    String
+  PrimaryContactEmail     String?   @unique
+  PrimaryContactPhone     String?   @unique
+  bankAccountName         String?
+  bankName                String?
+  bankCode                String?
+  bankAccountNumber       String?
+  shouldReceiveRevenue    Boolean
+  revenueSharePercentage  Float
+  currentBalance          Float     @default(0)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+}
+
+// CashOutRequest model----------------------manage payout
+model CashOutRequest {
+  id         String    @id @default(uuid())
+  msisdn     String
+  amount     Float
+  type       CashOutRequestType
+  status     CashOutRequestStatus
+  disputeReason  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// PartnerEarning model
+model PartnerEarning {
+  id           String    @id @default(uuid())
+  partnerId    String    
+  drawResultId String      
+  amount       Float
+  earningPercentage Float
+  disputeReason  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// PartnerPayout model
+model PartnerPayout {
+  id         String    @id @default(uuid())
+  amount     Float
+  status     PartnerPayoutStatus
+  disputeReason String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+// UssdSession model
+model UssdSession {
+  id                 String    @id @default(uuid())
+  msisdn             String
+  shortcode          String
+  externalSessionId  String
+  responses          String
+  expired            Boolean
+  lastResponse       String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+// SMSHistory model
+model SMSHistory {
+  id        String    @id @default(uuid())
+  msisdn    String
+  message   String
+  direction SMSDirection
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// Audit model
+model Audit {
+  id        String    @id @default(uuid())
+  action      String
+  actionBy    AuditActionBy
+  actionByUuid String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model ScheduledDraws {
+  id          String    @id @default(uuid())
+  productId   String
+  numberOfWinners Int
+  timePeriod  DateTime
+  isPerformed Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Phonebook {
+  id    String    @id @default(uuid()) 
+  phonebookId String @unique
+  phoneNumbers  PhoneNumber[]
+}
+
+model PhoneNumber {
+  id   String     @id @default(uuid())
+  name  String
+  number   String
+  phonebookId  String
+  phonebook  Phonebook @relation(fields: [phonebookId], references: [phonebookId])
+}
